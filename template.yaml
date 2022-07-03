@@ -1,0 +1,60 @@
+##
+## These are template sensors. 
+##
+## Given an insteon Scene Number, return a list of entities
+## This requires two pieces of information, the target address as well as the group number for multi-button, multi-outlet devices.
+## In the code for the sensor, first a list is created using the Insteon Address and the actual button (or outlet) number
+## Then this list is parsed against the entities themsleves to get the entities in the given Insteon Scene
+##
+## sensor.insteon_scene_entities
+##
+  - name: insteon_scene_entities
+    state: "{{ 'OK' }}"
+    attributes:
+        scene_entities: "
+{% set glist = state_attr('sensor.insteon_groups','groups') %}
+{% set devices = namespace(switch=[]) %}
+{% for value in glist %}
+{% if (value.group | int == states('input_select.insteon_modem_groups') | int)  %}
+{% set devices.switch = devices.switch + [(value.device_address[0:2] + '.' + value.device_address[2:-2] + '.' + value.device_address[-2:] + '_' + value.button | string) | upper] %}
+{% endif %}
+{% endfor %}
+{% set gp = namespace(groups=[]) %}
+{% for ent in integration_entities('insteon') %} 
+{% if state_attr(ent,'insteon_address') + '_' + state_attr(ent,'insteon_group') | string in devices.switch %} 
+{% set gp.groups = gp.groups + [ent] %}
+{% endif %} 
+{% endfor %} 
+{{ gp.groups | unique | sort }}"
+
+##
+## This sensor for scene names and numbers is created by hand based on my installation. There is no local storage in the ALDB or hub where the group names from the Insteon app are stored.
+## Using the app or just based on experiements, you can create a map like below for scene names and scene number.
+## This just helps you use some friendly names but can be used in automations/scripts for turning on an Insteon scene by using a friendly name.
+##
+## sensor.insteon_group_names
+##
+  - name: insteon_group_names
+    state: "
+    {% for gpname in states.sensor.insteon_group_names.attributes %}
+    {% if state_attr('sensor.insteon_group_names',gpname) == states('input_select.insteon_modem_groups') %} 
+    {{ gpname | replace('_', ' ') }}
+    {% endif %}
+    {% endfor %}"
+    attributes:
+        Front: 21
+        Work_Kitchen: 26
+        Pergola: 28
+        Backyard: 30
+        Deck_Lights: 31
+        Kitchen: 33
+        Panic: 39
+        Laundry_Main: 46
+        Laundry_Counter: 47
+        Laundry_Appliance: 48
+        Laundry_All: 49
+        Laundry_Right: 50
+        Dogs: 51
+        Christmas: 53
+        Couch: 54
+        Dining: 55

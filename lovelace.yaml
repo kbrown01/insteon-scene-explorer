@@ -1,0 +1,165 @@
+  - theme: Backend-selected
+    title: INSTEON
+    path: dev
+    icon: mdi:switch
+    type: custom:masonry-layout
+    badges: []
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: custom:auto-entities
+            card:
+              type: entities
+              title: Insteon Hub Scene Explorer
+              show_header_toggle: false
+              state_color: true
+            filter:
+              include:
+                - entity_id: input_select.insteon_modem_groups
+                  options:
+                    state_color: true
+                    icon: mdi:devices
+              exclude: []
+          - type: markdown
+            content: |
+              ## <center>{{ states("sensor.insteon_group_names") }}
+          - type: custom:auto-entities
+            card:
+              show_header_toggle: false
+              type: entities
+              state_color: true
+            filter:
+              template: >-
+                {{ state_attr('sensor.insteon_group_entities','scene_entities')
+                }}
+            sort:
+              method: friendly_name
+          - type: custom:layout-break
+      - type: vertical-stack
+        cards:
+          - type: custom:auto-entities
+            card:
+              show_header_toggle: false
+              type: entities
+              title: Home Assistant Groups
+            filter:
+              include:
+                - entity_id: group.insteon*
+                  sort:
+                    method: entity_id
+                  options:
+                    state_color: true
+          - type: custom:layout-break
+      - type: vertical-stack
+        cards:
+          - type: custom:auto-entities
+            card:
+              type: entities
+              title: Select Device
+              show_header_toggle: false
+              state_color: false
+            filter:
+              include:
+                - entity_id: input_select.insteon_devices
+                  options:
+                    state_color: true
+                    icon: mdi:devices
+              exclude: []
+          - type: custom:auto-entities
+            card:
+              title: Set Device Properties
+              show_header_toggle: false
+              type: entities
+            filter:
+              template: '{{ states.sensor.selected_insteon_device.state }}'
+            options:
+              type: custom:slider-entity-row
+              state_color: true
+          - type: custom:auto-entities
+            card:
+              type: entities
+              title: Select Insteon Scene
+              show_header_toggle: false
+            filter:
+              include:
+                - entity_id: input_number.target_insteon_group
+                  options:
+                    icon: mdi:home
+          - type: horizontal-stack
+            title: Add/Delete Insteon Scene Device
+            cards:
+              - type: custom:button-card
+                icon: mdi:home-group-plus
+                name: Add
+                styles:
+                  card:
+                    - height: 100px
+                hold_action:
+                  action: call-service
+                  service: insteon.add_all_link
+                  service_data:
+                    mode: controller
+                    group: >-
+                      [[[ return
+                      parseInt(states["input_number.target_insteon_group"].state)
+                      ]]]
+                  confirmation:
+                    text: >-
+                      [[[ return "About to add:\n\n" +
+                      states["input_select.insteon_devices"].state + " to group
+                      " +
+                      parseInt(states["input_number.target_insteon_group"].state)
+                      + "\n\nSelect 'OK' and go to the " +
+                      states["input_select.insteon_devices"].state + " and press
+                      the set button." ]]]
+              - type: custom:button-card
+                icon: mdi:home-group-minus
+                name: Remove
+                styles:
+                  card:
+                    - height: 100px
+                hold_action:
+                  action: call-service
+                  service: insteon.delete_all_link
+                  service_data:
+                    group: >-
+                      [[[ return
+                      parseInt(states["input_number.target_insteon_group"].state)
+                      ]]]
+          - type: horizontal-stack
+            title: Test Insteon Scene
+            cards:
+              - type: custom:button-card
+                icon: mdi:lightbulb-multiple-off
+                triggers_update: all
+                name: 'Off'
+                styles:
+                  card:
+                    - height: 100px
+                tap_action:
+                  action: none
+                hold_action:
+                  action: call-service
+                  service: insteon.scene_off
+                  service_data:
+                    group: >-
+                      [[[ return
+                      parseInt(states["input_number.target_insteon_group"].state)
+                      ]]]
+              - type: custom:button-card
+                icon: mdi:lightbulb-multiple
+                triggers_update: all
+                name: 'On'
+                styles:
+                  card:
+                    - height: 100px
+                tap_action:
+                  action: none
+                hold_action:
+                  action: call-service
+                  service: insteon.scene_on
+                  service_data:
+                    group: >-
+                      [[[ return
+                      parseInt(states["input_number.target_insteon_group"].state)
+                      ]]]

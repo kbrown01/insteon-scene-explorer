@@ -1,0 +1,111 @@
+##
+## Populate "input_select.insteon_devices"
+##
+- id: '1651436131649'
+  alias: Set Insteon Select Options
+  description: ''
+  trigger:
+  - platform: state
+    entity_id:
+    - sensor.insteon_groups
+  - platform: homeassistant
+    event: start
+  condition: []
+  action:
+  - service: input_select.set_options
+    data_template:
+      entity_id: input_select.insteon_devices
+      options: '{% set dv = namespace(devices=[]) %}  {% for ent in integration_entities(''insteon'')
+        %}  {% set entry = state_attr(ent,''friendly_name'') + " (" + ent + ")" %}
+        {% set dv.devices = dv.devices + [entry] %}   {% endfor %}  {{ dv.devices
+        | sort }}
+
+        '
+  mode: single
+##
+##  Populate "input_select.insteon_modem_groups"
+##  
+- id: '1652294634942'
+  alias: Set Insteon Device Groups
+  description: ''
+  trigger:
+  - platform: state
+    entity_id:
+    - sensor.insteon_groups
+  - platform: homeassistant
+    event: start
+  condition: []
+  action:
+  - service: input_select.set_options
+    data_template:
+      entity_id: input_select.insteon_modem_groups
+      options: '{{ state_attr(''sensor.insteon_groups'',''groups'') | map(attribute=''group'')
+        | unique | list  }}
+
+        '
+  mode: single
+##
+## When "input_select.insteon_modem_groups" is changed, change "input_number.target_insteon_group". 
+## Just makes it easier to select a scene in the modem and be alble to modify it.
+##      
+- id: '1652559762923'
+  alias: Change Target Insteon Group
+  description: ''
+  trigger:
+  - platform: state
+    entity_id:
+    - input_select.insteon_modem_groups
+  condition: []
+  action:
+  - service: input_number.set_value
+    data_template:
+      entity_id: input_number.target_insteon_group
+      value: '{{ states(''input_select.insteon_modem_groups'') | int }}'
+  - service: homeassistant.update_entity
+    data: {}
+    target:
+      entity_id:
+      - sensor.insteon_group_names
+  mode: single
+##
+## Iterate over all Insteon Scenes and create Home Assistant Groups that match.
+##   
+- id: '1655407823753'
+  alias: Build Insteon Scenes
+  description: ''
+  trigger:
+  - platform: state
+    entity_id:
+    - sensor.insteon_groups
+  condition: []
+  action:
+  - repeat:
+      while:
+      - condition: template
+        value_template: '{{ repeat.index <= (state_attr(''input_select.insteon_modem_groups'',''options'')
+          | count) }}'
+      sequence:
+      - service: group.set
+        data_template:
+          object_id: '{{ ''insteon_group_'' + (state_attr(''input_select.insteon_modem_groups'',''options'')[repeat.index
+            - 1]) }}'
+          name: '{% set scene_number = (state_attr(''input_select.insteon_modem_groups'',''options'')[repeat.index
+            - 1]) %} {% set glist = states.sensor.insteon_group_names.attributes %}
+            {% set gstring = namespace(grname=[]) %}  {% set gstring.grname = ''Insteon
+            Group '' + scene_number %} {% for gname in glist %} {% if state_attr(''sensor.insteon_group_names'',gname)
+            == scene_number %} {% set gstring.grname = gstring.grname + '' ('' + (gname
+            | replace(''_'','' '')) + '')'' %} {% endif %} {% endfor %} {{ gstring.grname
+            }}'
+          icon: mdi:lightbulb-group
+          entities: '{% set glist = state_attr(''sensor.insteon_groups'',''groups'')
+            %}  {% set devices = namespace(switch=[]) %}  {% for value in glist %}  {%
+            if ((value.group | int) == (state_attr(''input_select.insteon_modem_groups'',''options'')[repeat.index
+            - 1]) | int)  %} {% set devices.switch = devices.switch + [(value.device_address[0:2]
+            + ''.'' + value.device_address[2:-2] + ''.'' + value.device_address[-2:]
+            + ''_'' + value.button | string) | upper] %}  {% endif %}  {% endfor %}  {%
+            set gp = namespace(groups=[]) %}  {% for ent in integration_entities(''insteon'')
+            %}   {% if state_attr(ent,''insteon_address'') + ''_'' + state_attr(ent,''insteon_group'')
+            | string in devices.switch %}   {% set gp.groups = gp.groups + [ent] %}  {%
+            endif %}   {% endfor %}   {{ gp.groups | unique | sort }}'
+          all: true
+  mode: single
