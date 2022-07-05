@@ -8,6 +8,8 @@ Please note that I mostly use includes to include other yaml files, you may need
 
 For the initial upload, I believe I captured everything.
 
+(Prerequisite: Install `layout-card` and 'button-card` via HACS Frontend Add-ons)
+
 First, implement at least **sensor.insteon_groups** from **sensor.yaml**.
 This sensor should given something like this (of course it would have your own Insteon scenes):
 
