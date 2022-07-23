@@ -1,5 +1,5 @@
 # Insteon Scene Explorer
-This is a set of sensors, input_selects, automations and Lovelace screens for the Insteon Scene Explorer
+This is a set of sensors, input_selects, automations and Lovelace screens for the Insteon Scene Explorer (ISE)
 
 The YAML files have comments indicating what each component is doing.
 One should start slowly, creating and testing each sensor.
