@@ -17,30 +17,42 @@ homeassistant:
 ### Copy/Create the code to your packages folder
 Copy the [insteon-scene-explorer](./insteon-scene-explorer) folder to your home assistant packages folder location.
 
+> NOTE: Each input and automation name is prefixed with "ISE - " in order to make it easy to identify these items in the interface.
+
 ### Copy/Create the Custom Scene name config file
-Copy the [ise-named_groups.json](./ise-named-groups.json) file to your home assistant config folder location.
-We'll come back to this file in a moment.
+Copy the [ise_named_groups.json](./ise_named_groups.json) file to your home assistant config folder location.  We'lll discuss how to use this later.
+
+### Install dashboard prerequisites
+To use this dashboard configuration, you'll need to custom components.  I highly suggest using the [Home Assistant Community Store](https://hacs.xyz/docs/configuration/basic) (HACS) to install the components. For installation instructions [see this guide](https://github.com/thomasloven/hass-config/wiki/Lovelace-Plugins).
+
+1. Install `layout-card`
+2. Install `button-card`
 
 ### Create/Update your dashboard
+The Lovelace design makes use of several custom cards and you may need to adopt or change to suite your needs.
 I created a new, empty [dashboard](https://www.home-assistant.io/dashboards/) to get started.  Add the contents of the [lovelace.yaml](./lovelace.yaml) to create the view seen above.
 
+### Restart Home Assistant
+Even if you've restarted Home Assistant prior to this step, this is a good time to make sure that you have a fresh restart to check your configuration.
+Use the `Developer Tools` menu and **Check Configuration** on the `YAML` tab.  Assuming that you get the mesage "Configuration Valid!", click the **RESTART** link.
 
+## Testing
+After HA restarts, you should be able to navigate to your recently configured dashbaord and verify that you have a view similar to the above screenshot.  
+If you do, great go to the next section!
 
+If you do not, then you'll need to do some troubleshooting, starting with reviewing your logs.
 
-The YAML files have comments indicating what each component is doing.
-One should start slowly, creating and testing each sensor.
-The Lovelace design makes use of several custom cards and you may need to adopt or change to suite your needs.
-Please note that I mostly use includes to include other yaml files, you may need to put some of these in your own or create them if you wish to use as is.
+TROUBLESHOOTING notes TBD
 
-For the initial upload, I believe I captured everything.
+## Configuration
+Now that you have your Insteon Scene Explorer working, you can customize it by supplying YOUR name for the numbered scenes.  For each numbered scene that you'd like to supply a name, add an entry to your `ise-named-groups.json` file that you placed in your config folder earlier.  For example,
 
-First, implement at least **sensor.insteon_groups** from **sensor.yaml**.
-This sensor should given something like this (of course it would have your own Insteon scenes):
-
-
-![insteon_groups.png](insteon_groups.png)
-
-If you examine this, it is kindof like a pivot of **insteon_devices.json** organized as a single entry for every device participating in a group. Like a group-based ALDB and not a entry-based one. This assumes  you have "jq" installed to parse JSON files (should be installed in most Home Assistant installations I think). It reads the JSON file that is kept around as the Insteon ALDB cache and reorganizes the information inside.
-
-If you get this far and get entries in the sensor that are what you expect, continue on with the remainder.
-
+```javascript
+{
+    "groups": { 
+        "46": "Holiday Outside",
+        "47": "Window Outlets"
+    }
+}
+```
+This file is read by the system every 30 seconds, so after a short wait, you should be able to refresh your dashboard to see your changes!
