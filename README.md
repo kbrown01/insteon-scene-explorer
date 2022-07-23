@@ -1,5 +1,22 @@
 # Insteon Scene Explorer
-This is a set of sensors, input_selects, automations and Lovelace screens for the Insteon Scene Explorer
+This is a set of sensors, input_selects, automations and Lovelace screens for the Insteon Scene Explorer (ISE)
+
+![insteon_scene_explorer.png](insteon_scene_explorer.png)
+
+## Installation
+This component takes advantage of [Home Assistant Packages](https://www.home-assistant.io/docs/configuration/packages/).  
+
+### Ensure Home Assistant is configured to use packages
+This component assumes that you are following the advice to create and configure the [packages folder](https://www.home-assistant.io/docs/configuration/packages/#create-a-packages-folder).  I've used the following at the beginning of my configuration.yaml, if you choose a different method, you'll need to adjust your steps accordingly.
+
+```yaml
+homeassistant:
+  packages: !include_dir_merge_named packages/
+```
+
+### Copy the code to your packages folder
+Copy the [insteon-scene-explorer](./insteon-scene-explorer) folder to your home assistant packages folder location.
+
 
 The YAML files have comments indicating what each component is doing.
 One should start slowly, creating and testing each sensor.
@@ -18,6 +35,3 @@ If you examine this, it is kindof like a pivot of **insteon_devices.json** organ
 
 If you get this far and get entries in the sensor that are what you expect, continue on with the remainder.
 
-Ultimately, when all put together, it looks like this in my installation:
-
-![insteon_scene_explorer.png](insteon_scene_explorer.png)
