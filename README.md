@@ -14,8 +14,17 @@ homeassistant:
   packages: !include_dir_merge_named packages/
 ```
 
-### Copy the code to your packages folder
+### Copy/Create the code to your packages folder
 Copy the [insteon-scene-explorer](./insteon-scene-explorer) folder to your home assistant packages folder location.
+
+### Copy/Create the Custom Scene name config file
+Copy the [ise-named_groups.json](./ise-named-groups.json) file to your home assistant config folder location.
+We'll come back to this file in a moment.
+
+### Create/Update your dashboard
+I created a new, empty [dashboard](https://www.home-assistant.io/dashboards/) to get started.  Add the contents of the [lovelace.yaml](./lovelace.yaml) to create the view seen above.
+
+
 
 
 The YAML files have comments indicating what each component is doing.
