@@ -1,0 +1,289 @@
+#################################
+## Insteon Scene Explorer Configuration
+#################################
+ise_pack:
+  input_select:
+    #################################
+    ## input select used in the GUI. The options are populated in automations
+    #################################
+    insteon_devices:
+      name: ISE - Target Insteon Device
+      options:
+        - Loading (0)
+      icon: mdi:home
+
+    #################################
+    ## input select used in the GUI. The options are populated in automations
+    #################################
+    insteon_modem_groups:
+      name: ISE - Insteon Modem Scenes
+      options:
+        - 25
+
+  input_number:
+    #################################
+    ## input number used in the GUI.
+    #################################
+    target_insteon_group:
+      name: ISE - Target Insteon Scene
+      min: 25
+      max: 253
+      step: 1
+
+  sensor:
+    #################################
+    ## sensor.insteon_groups
+    ##
+    ## This command line template uses "jq" to process the insteon_devices.json into organized insteon scenes.
+    ## It *only* reads the scenes in the hub (not device to device scenes).
+    ## It returns JSON as attributes for only records that are "in_use" in the ALDB.
+    #################################
+    - platform: command_line
+      name: insteon_groups
+      unique_id: "1656717568"
+      scan_interval: 30
+      command: >
+        jq '
+        {
+          groups: [.[0].address as $modemaddress | .[] | .address as $device_address | select(.address != $modemaddress) | .aldb | .[] | .target = $modemaddress | {
+            group: .group,
+            in_use: .in_use,
+            device_address: $device_address,
+            device_addr: ($device_address[0:2] + "." + $device_address[2:-2] + "." + $device_address[-2:]),
+            device_fqn: ($device_address[0:2] + "." + $device_address[2:-2] + "." + $device_address[-2:] + "_" + (.data3|tostring)),
+            target: .target,
+            controller: .controller,
+            brightness: .data1,
+            ramp_rate: .data2,
+            button: .data3
+          }] | sort_by(.group) | map(select(.group > 20)) | map(select(.in_use))
+        }
+        ' insteon_devices.json
+      value_template: "{{ now() }}"
+      json_attributes:
+        - groups
+
+    #################################
+    ## sensor.insteon_named_groups
+    ##
+    ## This command line template uses "jq" to load user-named groups
+    #################################
+    - platform: command_line
+      name: insteon_named_groups
+      unique_id: "1658018195"
+      scan_interval: 30
+      command: >
+        jq '.' ise_named_groups.json 
+      value_template: "{{ now() }}"
+      json_attributes:
+        - groups
+
+  template:
+    #################################
+    ## sensor.selected_insteon_device
+    ##
+    ## Contains the entity_id for the selected device
+    ## Populated when a device is selected from an input_select containing all the devices.
+    ## The input_select.insteon_devices is structured as "friendly_name (entity_id)" so one can see what devices are what.
+    ## The "sensor.selected_insteon_device" parses off the entity_id part.
+    #################################
+    - sensor:
+        - name: selected_insteon_device
+          unique_id: "1656717056"
+          state: "{{ states('input_select.insteon_devices').split('(')[1].split(')')[0] }}"
+
+    #################################
+    ## sensor.targeted_insteon_group
+    ##
+    ## Store the currently selected group.
+    #################################
+    - sensor:
+        - name: targeted_insteon_group
+          unique_id: "1656717063"
+          state: "{{ states('input_number.target_insteon_group') | int }}"
+
+    #################################
+    ## sensor.insteon_group_entities
+    ##
+    ## Given an insteon Scene Number, return a list of entities
+    ## This requires two pieces of information, the target address as well as the group number for multi-button, multi-outlet devices.
+    ## In the code for the sensor, first a list is created using the Insteon Address and the actual button (or outlet) number
+    ## Then this list is parsed against the entities themsleves to get the entities in the given Insteon Scene
+    #################################
+    - sensor:
+        - name: insteon_group_entities
+          unique_id: "1656717103"
+          state: "{{ 'OK' }}"
+          attributes:
+            scene_entities: >
+              {% set glist = state_attr('sensor.insteon_groups','groups') %}
+              {% set devices = namespace(switch=[]) %}
+              {% for value in glist %}
+              {%   if (value.group | int == states('input_select.insteon_modem_groups') | int)  %}
+              {%     set devices.switch = devices.switch + [value.device_fqn | string | upper] %}
+              {%   endif %}
+              {% endfor %}
+              {% set gp = namespace(groups=[]) %}
+              {% for ent in integration_entities('insteon') %} 
+              {%   if state_attr(ent,'insteon_address') + '_' + state_attr(ent,'insteon_group') | string in devices.switch %} 
+              {%     set gp.groups = gp.groups + [ent] %}
+              {%   endif %} 
+              {% endfor %} 
+              {{ gp.groups | unique | sort }}
+
+    #################################
+    ## sensor.insteon_group_names
+    ##
+    ## This sensor for scene names and numbers is created by hand based on my installation. There is no local storage in the ALDB or hub where the group names from the Insteon app are stored.
+    ## Using the app or just based on experiements, you can create a map like below for scene names and scene number.
+    ## This just helps you use some friendly names but can be used in automations/scripts for turning on an Insteon scene by using a friendly name.
+    #################################
+    - sensor:
+        - name: insteon_group_names
+          unique_id: "1656719018"
+          state: >
+            {% set mapper = state_attr('sensor.insteon_named_groups','groups') %}
+            {% set state = states('input_select.insteon_modem_groups') | string %}
+            {% set label = mapper[state] if state in mapper else "Unknown Scene" %}
+            {{ label }}
+
+  automation:
+    #################################
+    ## Populate "input_select.insteon_devices"
+    ## Populates the select options with a list of Insteon entities
+    #################################
+    - id: "1651436131649"
+      alias: ISE - Set Insteon Select Options
+      description: ""
+      trigger:
+        - platform: state
+          entity_id: sensor.insteon_groups
+          attribute: groups
+      condition: []
+      action:
+        - service: input_select.set_options
+          data_template:
+            entity_id: input_select.insteon_devices
+            options: >
+              {% set dv = namespace(devices=[]) %}  
+              {% for ent in integration_entities('insteon') %}  
+              {%   set entry = state_attr(ent,'friendly_name') + " (" + ent + ")" %}
+              {%   set dv.devices = dv.devices + [entry] %}   
+              {% endfor %}  
+              {{ dv.devices  | sort }}
+      mode: single
+
+    #################################
+    ## Populate "input_select.insteon_modem_groups"
+    ## Populates the select options with all established groups in the modem ALDB
+    #################################
+    - id: "1652294634942"
+      alias: ISE - Set Insteon Device Groups
+      description: ""
+      trigger:
+        - platform: state
+          entity_id: sensor.insteon_groups
+          attribute: groups
+        - platform: homeassistant
+          event: start
+      condition: []
+      action:
+        - service: input_select.set_options
+          data_template:
+            entity_id: input_select.insteon_modem_groups
+            options: "{{ state_attr('sensor.insteon_groups','groups') | map(attribute='group') | unique | list  }}"
+      mode: single
+
+    #################################
+    ## When "input_select.insteon_modem_groups" is changed, change "input_number.target_insteon_group".
+    ## Just makes it easier to select a scene in the modem and be able to modify it.
+    #################################
+    - id: "1652559762923"
+      alias: ISE - Change Target Insteon Group
+      description: ""
+      trigger:
+        - platform: state
+          entity_id:
+            - input_select.insteon_modem_groups
+      condition: []
+      action:
+        - service: input_number.set_value
+          data_template:
+            entity_id: input_number.target_insteon_group
+            value: "{{ states('input_select.insteon_modem_groups') | int }}"
+        - service: homeassistant.update_entity
+          data: {}
+          target:
+            entity_id:
+            - sensor.insteon_group_names
+      mode: single
+
+    #################################
+    ## Refresh "sensor.insteon_group_names"
+    #################################
+    - id: "1658021777"
+      alias: ISE - Change Named Groups
+      description: ""
+      trigger:
+        - platform: state
+          entity_id: sensor.insteon_named_groups
+          attribute: groups
+        - platform: homeassistant
+          event: start
+      condition: []
+      action:
+        - service: homeassistant.update_entity
+          data: {}
+          target:
+            entity_id:
+            - sensor.insteon_group_names
+      mode: single
+
+    #################################
+    ## Iterate over all Insteon Scenes and create Home Assistant Groups that match.
+    #################################
+    - id: "1655407823753"
+      alias: ISE - Build Insteon Scenes
+      description: ""
+      trigger:
+        - platform: state
+          entity_id: sensor.insteon_groups
+          attribute: groups
+        - platform: homeassistant
+          event: start
+      condition: []
+      action:
+        - repeat:
+            while:
+              - condition: template
+                value_template: >-
+                  {{ repeat.index <= (state_attr('input_select.insteon_modem_groups','options') | count) }}
+            sequence:
+              - service: group.set
+                data_template:
+                  object_id: >-
+                    {{ 'insteon_group_' + (state_attr('input_select.insteon_modem_groups','options')[repeat.index - 1]) }}
+                  name: >-
+                    {% set scene_number = (state_attr('input_select.insteon_modem_groups','options')[repeat.index - 1]) | string %} 
+                    {% set mapper = state_attr('sensor.insteon_named_groups','groups') %}
+                    {% set gstring = namespace(grname=[]) %}  
+                    {% set gstring.grname = mapper[scene_number] + ' (' + scene_number + ')' if scene_number in mapper else 'Insteon Group ' + scene_number %}
+                    {{ gstring.grname }}
+                  icon: mdi:lightbulb-group
+                  entities: >-
+                    {% set glist = state_attr('sensor.insteon_groups','groups') %}  
+                    {% set devices = namespace(switch=[]) %}  
+                    {% for value in glist %} 
+                    {%   if ((value.group | int) == (state_attr('input_select.insteon_modem_groups','options')[repeat.index - 1]) | int)  %} 
+                    {%     set devices.switch = devices.switch + [value.device_fqn | string | upper] %}  
+                    {%   endif %}  
+                    {% endfor %}  
+                    {% set gp = namespace(groups=[]) %}  
+                    {% for ent in integration_entities('insteon') %}   
+                    {%   if state_attr(ent,'insteon_address') + '_' + state_attr(ent,'insteon_group') | string in devices.switch %}   
+                    {%     set gp.groups = gp.groups + [ent] %}  
+                    {%   endif %}   
+                    {% endfor %}  
+                    {{ gp.groups | unique | sort }}
+                  all: true
+      mode: single
